@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WhatsApp Web</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f2f5; /* Açık gri fon */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+        .container {
+            width: 100%;
+            max-width: 700px;
+            height: 100vh;
+            background-color: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        @media (min-width: 640px) {
+            .container {
+                height: 95vh;
+            }
+        }
+        .chat-header {
+            background-color: #008069;
+            color: #ffffff;
+            padding: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+        }
+        .message-bubble {
+            max-width: 80%;
+            padding: 8px 12px;
+            border-radius: 12px;
+            word-wrap: break-word;
+            white-space: pre-wrap;
+            position: relative;
+            margin-bottom: 8px;
+        }
+        .my-message {
+            background-color: #dcf8c6; /* WhatsApp yeşili */
+            align-self: flex-end;
+            border-bottom-right-radius: 2px;
+        }
+        .other-message {
+            background-color: #ffffff;
+            align-self: flex-start;
+            border: 1px solid #e0e0e0;
+            border-bottom-left-radius: 2px;
+        }
+        img.chat-image {
+            max-width: 100%;
+            max-height: 250px;
+            border-radius: 8px;
+            margin-top: 4px;
+        }
+        .loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(255, 255, 255, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            z-index: 10;
+        }
+        .message-timestamp {
+            font-size: 10px;
+            color: #888;
+            margin-left: 10px;
+            align-self: flex-end;
+        }
+    </style>
+</head>
+<body>
+
+<div id="loadingScreen" class="loading-overlay">
+    <svg class="animate-spin -ml-1 mr-3 h-10 w-10 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+    </svg>
+    <p class="mt-4 text-gray-700">Başlatılıyor...</p>
+</div>
+
+<div class="container hidden" id="mainApp">
+    <!-- Sohbet Kodu Giriş Ekranı -->
+    <div id="joinScreen" class="p-6 flex flex-col items-center justify-center h-full">
+        <h1 class="text-3xl font-bold mb-4 text-gray-800">WhatsApp Web</h1>
+        <p class="text-center text-gray-600 mb-6">Sohbete katılmak için bir kod girin.</p>
+        <input type="text" id="chatCodeInput" placeholder="Sohbet kodu" class="w-full max-w-sm px-4 py-2 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-green-500 transition-all duration-200">
+        <button id="joinButton" class="w-full max-w-sm mt-4 px-4 py-2 bg-green-500 text-white font-medium rounded-full hover:bg-green-600 transition-all duration-200">Sohbete Katıl</button>
+        <div id="errorMessage" class="text-red-500 mt-4 hidden"></div>
+    </div>
+
+    <!-- Sohbet Ekranı -->
+    <div id="chatScreen" class="flex flex-col h-full hidden">
+        <header class="chat-header">
+            <div class="flex items-center space-x-4">
+                <div class="w-10 h-10 bg-white rounded-full flex items-center justify-center text-2xl">😎</div>
+                <h2 id="chatTitle" class="text-lg font-semibold">Sohbet</h2>
+            </div>
+            <div class="text-sm">ID'niz: <span id="userIdDisplay" class="font-mono"></span></div>
+        </header>
+
+        <!-- Mesaj Listesi -->
+        <div id="messagesContainer" class="flex-1 p-4 overflow-y-auto space-y-4 bg-gray-50">
+            <!-- Mesajlar buraya eklenecek -->
+        </div>
+
+        <!-- Mesaj Gönderme Alanı -->
+        <div class="p-2 bg-white border-t border-gray-200 flex items-center space-x-2">
+            <input type="text" id="messageInput" placeholder="Mesaj yazın..." class="flex-1 px-4 py-2 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-green-500">
+            <label for="imageUpload" class="cursor-pointer">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-gray-400 hover:text-green-500 transition-colors duration-200" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M19 5H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2ZM5 7h14l-3.5 4.5-2.5-3-4 5V7Z" />
+                </svg>
+            </label>
+            <input type="file" id="imageUpload" class="hidden" accept="image/*">
+            <button id="sendMessageButton" class="p-2 bg-green-500 text-white rounded-full hover:bg-green-600 transition-colors duration-200">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
+                </svg>
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Firebase kütüphaneleri -->
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getFirestore, doc, collection, addDoc, query, onSnapshot, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+    import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+    // Firestore loglama seviyesini ayarla (hata ayıklama için yararlıdır)
+    setLogLevel('Debug');
+
+    // Global Firebase değişkenleri (Canvas tarafından sağlanır)
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+    const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+    const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+    // Firebase'i başlat
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+
+    // HTML elemanlarını seç
+    const loadingScreen = document.getElementById('loadingScreen');
+    const mainApp = document.getElementById('mainApp');
+    const joinScreen = document.getElementById('joinScreen');
+    const chatScreen = document.getElementById('chatScreen');
+    const chatCodeInput = document.getElementById('chatCodeInput');
+    const joinButton = document.getElementById('joinButton');
+    const errorMessage = document.getElementById('errorMessage');
+    const messagesContainer = document.getElementById('messagesContainer');
+    const messageInput = document.getElementById('messageInput');
+    const sendMessageButton = document.getElementById('sendMessageButton');
+    const imageUpload = document.getElementById('imageUpload');
+    const chatTitle = document.getElementById('chatTitle');
+    const userIdDisplay = document.getElementById('userIdDisplay');
+
+    let userId = null;
+    let chatCode = null;
+    let isSending = false; // Spam koruması için yeni değişken
+
+    // Kimlik doğrulama işlemini başlat
+    async function startAuth() {
+        try {
+            if (initialAuthToken) {
+                await signInWithCustomToken(auth, initialAuthToken);
+            } else {
+                await signInAnonymously(auth);
+            }
+        } catch (error) {
+            console.error("Kimlik doğrulama başarısız:", error);
+            errorMessage.textContent = 'Oturum açma hatası. Lütfen sayfayı yenileyin.';
+            errorMessage.classList.remove('hidden');
+        }
+    }
+
+    // Kimlik doğrulama durumu değiştiğinde çalışır
+    onAuthStateChanged(auth, (user) => {
+        if (user) {
+            userId = user.uid;
+            userIdDisplay.textContent = userId.substring(0, 8);
+            loadingScreen.classList.add('hidden');
+            mainApp.classList.remove('hidden');
+        } else {
+            console.log("Kullanıcı oturum açmamış.");
+            loadingScreen.classList.add('hidden');
+            mainApp.classList.remove('hidden');
+        }
+    });
+
+    // Sohbeti başlatma fonksiyonu
+    function setupChat(code) {
+        chatCode = code.trim();
+        if (!chatCode) {
+            errorMessage.textContent = 'Lütfen geçerli bir sohbet kodu girin.';
+            errorMessage.classList.remove('hidden');
+            return;
+        }
+        
+        // Firestore'daki genel sohbet koleksiyonuna referans oluştur
+        const publicChatsPath = `/artifacts/${appId}/public/data/chats`;
+        const chatCollectionRef = collection(db, `${publicChatsPath}/${chatCode}/messages`);
+        
+        // Sohbet başlığını ve ekranını güncelle
+        chatTitle.textContent = `Sohbet #${chatCode}`;
+        joinScreen.classList.add('hidden');
+        chatScreen.classList.remove('hidden');
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+        // Mesajları gerçek zamanlı dinle
+        const q = query(chatCollectionRef, orderBy('timestamp'));
+        onSnapshot(q, (snapshot) => {
+            snapshot.docChanges().forEach((change) => {
+                if (change.type === "added") {
+                    const message = change.doc.data();
+                    displayMessage(message);
+                }
+            });
+            // Yeni mesaj geldiğinde en alta kaydır
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }, (error) => {
+            console.error("Mesajlar dinlenirken hata oluştu:", error);
+            errorMessage.textContent = 'Sohbete katılırken bir hata oluştu.';
+            errorMessage.classList.remove('hidden');
+            chatScreen.classList.add('hidden');
+            joinScreen.classList.remove('hidden');
+        });
+    }
+
+    // Mesajı ekrana ekle
+    function displayMessage(message) {
+        const isMyMessage = message.senderId === userId;
+        const messageElement = document.createElement('div');
+        messageElement.classList.add('flex', 'flex-col', 'max-w-xs', 'px-3', 'py-1', 'rounded-2xl', 'shadow-sm', 'relative', 'group');
+        
+        const timestamp = document.createElement('div');
+        timestamp.classList.add('message-timestamp', 'opacity-0', 'group-hover:opacity-100', 'transition-opacity', 'duration-200');
+        const date = message.timestamp ? new Date(message.timestamp.seconds * 1000) : new Date();
+        timestamp.textContent = date.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+
+        const contentWrapper = document.createElement('div');
+        contentWrapper.classList.add('flex', 'flex-col', 'space-y-1');
+
+        if (isMyMessage) {
+            messageElement.classList.add('ml-auto', 'my-message');
+            contentWrapper.appendChild(timestamp);
+        } else {
+            messageElement.classList.add('mr-auto', 'other-message');
+        }
+        
+        const senderName = document.createElement('div');
+        senderName.classList.add('text-xs', 'font-semibold', 'mb-1', isMyMessage ? 'text-right' : 'text-left');
+        senderName.textContent = isMyMessage ? 'Sen' : message.senderId.substring(0, 8);
+        contentWrapper.appendChild(senderName);
+
+        if (message.text) {
+            const textContent = document.createElement('p');
+            textContent.classList.add('text-sm');
+            textContent.textContent = message.text;
+            contentWrapper.appendChild(textContent);
+        }
+
+        if (message.image) {
+            const imageElement = document.createElement('img');
+            imageElement.src = message.image;
+            imageElement.classList.add('chat-image');
+            contentWrapper.appendChild(imageElement);
+        }
+        
+        messageElement.appendChild(contentWrapper);
+
+        if (!isMyMessage) {
+            messageElement.appendChild(timestamp);
+        }
+
+        messagesContainer.appendChild(messageElement);
+    }
+
+    // Mesaj gönderme fonksiyonu
+    async function sendMessage(text = null, image = null) {
+        if (!userId || !chatCode) return;
+        if (isSending) return; // Spam koruması: zaten gönderiliyorsa dur
+
+        isSending = true;
+        sendMessageButton.disabled = true;
+        imageUpload.disabled = true;
+
+        const publicChatsPath = `/artifacts/${appId}/public/data/chats`;
+        const chatCollectionRef = collection(db, `${publicChatsPath}/${chatCode}/messages`);
+
+        const messageData = {
+            senderId: userId,
+            timestamp: serverTimestamp()
+        };
+
+        if (text) {
+            messageData.text = text;
+        }
+        if (image) {
+            messageData.image = image;
+        }
+
+        try {
+            await addDoc(chatCollectionRef, messageData);
+            if (text) {
+                messageInput.value = ''; // Mesaj gönderildikten sonra metin kutusunu temizle
+            }
+        } catch (e) {
+            console.error("Mesaj gönderilirken hata oluştu: ", e);
+            // Hata mesajı gösterilebilir
+        } finally {
+            // 3 saniye sonra butonu ve durumu eski haline getir
+            setTimeout(() => {
+                isSending = false;
+                sendMessageButton.disabled = false;
+                imageUpload.disabled = false;
+            }, 3000);
+        }
+    }
+
+    // Olay Dinleyicileri
+    joinButton.addEventListener('click', () => {
+        setupChat(chatCodeInput.value);
+    });
+
+    chatCodeInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            setupChat(chatCodeInput.value);
+        }
+    });
+
+    sendMessageButton.addEventListener('click', () => {
+        const text = messageInput.value.trim();
+        if (text) {
+            sendMessage(text);
+        }
+    });
+
+    messageInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            const text = messageInput.value.trim();
+            if (text) {
+                sendMessage(text);
+            }
+        }
+    });
+
+    imageUpload.addEventListener('change', (event) => {
+        const file = event.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                sendMessage(null, reader.result); // Base64 olarak gönder
+            };
+            reader.readAsDataURL(file);
+        }
+    });
+
+    // Uygulamayı başlat
+    startAuth();
+
+</script>
+
+</body>
+</html>
