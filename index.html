@@ -154,9 +154,20 @@
     // Firestore loglama seviyesini ayarla (hata ayıklama için yararlıdır)
     setLogLevel('Debug');
 
-    // Global Firebase değişkenleri (Canvas tarafından sağlanır)
+    // Global Firebase değişkenleri (Normalde Canvas tarafından sağlanır)
     const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-    const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+
+    // Kendi Firebase projenizin yapılandırması
+    const firebaseConfig = {
+        apiKey: "AIzaSyCvkBOQ4Uw5Q9o7SPHxVj1_gCNJJhN-d04",
+        authDomain: "whatsapp-web-clone-d1d1b.firebaseapp.com",
+        projectId: "whatsapp-web-clone-d1d1b",
+        storageBucket: "whatsapp-web-clone-d1d1b.firebasestorage.app",
+        messagingSenderId: "945374768972",
+        appId: "1:945374768972:web:cb93529aed5eae2ff0e9e9",
+        measurementId: "G-NPBKEMXX6C"
+    };
+
     const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
     // Firebase'i başlat
