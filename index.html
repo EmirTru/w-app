@@ -105,7 +105,8 @@
     <!-- Sohbet Kodu Giriş Ekranı -->
     <div id="joinScreen" class="p-6 flex flex-col items-center justify-center h-full">
         <h1 class="text-3xl font-bold mb-4 text-gray-800">WhatsApp Web</h1>
-        <p class="text-center text-gray-600 mb-6">Sohbete katılmak için bir kod girin.</p>
+        <p class="text-center text-gray-600 mb-6">Sohbete katılmak için bir kullanıcı adı ve sohbet kodu girin.</p>
+        <input type="text" id="usernameInput" placeholder="Kullanıcı adınız" class="w-full max-w-sm px-4 py-2 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-green-500 transition-all duration-200 mb-4">
         <input type="text" id="chatCodeInput" placeholder="Sohbet kodu" class="w-full max-w-sm px-4 py-2 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-green-500 transition-all duration-200">
         <button id="joinButton" class="w-full max-w-sm mt-4 px-4 py-2 bg-green-500 text-white font-medium rounded-full hover:bg-green-600 transition-all duration-200">Sohbete Katıl</button>
         <div id="errorMessage" class="text-red-500 mt-4 hidden"></div>
@@ -147,7 +148,7 @@
 <!-- Firebase kütüphaneleri -->
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-    import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
     import { getFirestore, doc, collection, addDoc, query, onSnapshot, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
     import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
@@ -168,8 +169,6 @@
         measurementId: "G-NPBKEMXX6C"
     };
 
-    const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-
     // Firebase'i başlat
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
@@ -180,6 +179,7 @@
     const mainApp = document.getElementById('mainApp');
     const joinScreen = document.getElementById('joinScreen');
     const chatScreen = document.getElementById('chatScreen');
+    const usernameInput = document.getElementById('usernameInput');
     const chatCodeInput = document.getElementById('chatCodeInput');
     const joinButton = document.getElementById('joinButton');
     const errorMessage = document.getElementById('errorMessage');
@@ -191,17 +191,14 @@
     const userIdDisplay = document.getElementById('userIdDisplay');
 
     let userId = null;
+    let username = null;
     let chatCode = null;
     let isSending = false; // Spam koruması için yeni değişken
 
     // Kimlik doğrulama işlemini başlat
     async function startAuth() {
         try {
-            if (initialAuthToken) {
-                await signInWithCustomToken(auth, initialAuthToken);
-            } else {
-                await signInAnonymously(auth);
-            }
+            await signInAnonymously(auth);
         } catch (error) {
             console.error("Kimlik doğrulama başarısız:", error);
             errorMessage.textContent = 'Oturum açma hatası. Lütfen sayfayı yenileyin.';
@@ -224,8 +221,16 @@
     });
 
     // Sohbeti başlatma fonksiyonu
-    function setupChat(code) {
+    function setupChat(code, name) {
+        username = name.trim();
         chatCode = code.trim();
+
+        if (!username) {
+            errorMessage.textContent = 'Lütfen geçerli bir kullanıcı adı girin.';
+            errorMessage.classList.remove('hidden');
+            return;
+        }
+
         if (!chatCode) {
             errorMessage.textContent = 'Lütfen geçerli bir sohbet kodu girin.';
             errorMessage.classList.remove('hidden');
@@ -285,7 +290,7 @@
         
         const senderName = document.createElement('div');
         senderName.classList.add('text-xs', 'font-semibold', 'mb-1', isMyMessage ? 'text-right' : 'text-left');
-        senderName.textContent = isMyMessage ? 'Sen' : message.senderId.substring(0, 8);
+        senderName.textContent = isMyMessage ? 'Sen' : message.senderName;
         contentWrapper.appendChild(senderName);
 
         if (message.text) {
@@ -313,7 +318,7 @@
 
     // Mesaj gönderme fonksiyonu
     async function sendMessage(text = null, image = null) {
-        if (!userId || !chatCode) return;
+        if (!userId || !chatCode || !username) return;
         if (isSending) return; // Spam koruması: zaten gönderiliyorsa dur
 
         isSending = true;
@@ -325,6 +330,7 @@
 
         const messageData = {
             senderId: userId,
+            senderName: username,
             timestamp: serverTimestamp()
         };
 
@@ -355,12 +361,18 @@
 
     // Olay Dinleyicileri
     joinButton.addEventListener('click', () => {
-        setupChat(chatCodeInput.value);
+        setupChat(chatCodeInput.value, usernameInput.value);
     });
 
     chatCodeInput.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') {
-            setupChat(chatCodeInput.value);
+            setupChat(chatCodeInput.value, usernameInput.value);
+        }
+    });
+    
+    usernameInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            setupChat(chatCodeInput.value, usernameInput.value);
         }
     });
 
